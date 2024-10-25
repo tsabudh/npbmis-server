@@ -19,7 +19,7 @@ export const createProject = async (req, res) => {
       nepaliName,
       priority,
       budgetCode,
-      identificationStage,
+      inceptionStatus,
       appraisalStage,
     } = req.body;
 
@@ -31,7 +31,7 @@ export const createProject = async (req, res) => {
       sector,
       nepali_name: nepaliName,
       budget_code: budgetCode,
-      identification_stage: identificationStage,
+      inception_status: inceptionStatus,
       appraisal_stage: appraisalStage,
     });
     return res.status(201).json({
@@ -45,7 +45,7 @@ export const createProject = async (req, res) => {
     return res.status(500).json({
       status: "failure",
       message: error.message + ". " + error.errors[0]?.message,
-      source: "createUser",
+      source: "createProject",
     });
   }
 };

@@ -2,10 +2,10 @@
 
 import { Sequelize } from "sequelize";
 
-const sequelize = new Sequelize("npbmis", "postgres", "admin", {
-  host: "localhost",
+const sequelize = new Sequelize(process.env.DB_URL, "postgres", "admin", {
   dialect: "postgres",
-  logging: false, // Disable logging
+  logging: false,
+  protocol: "postgres",
 });
 
 export default sequelize;

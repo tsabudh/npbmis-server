@@ -38,6 +38,7 @@ const User = sequelize.define(
     username: {
       type: DataTypes.STRING,
       allowNull: false,
+      unique: true,
       validate: {
         len: {
           args: [1, 15], // Enforce a length limit between 1 and 15 characters

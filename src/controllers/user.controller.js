@@ -2,7 +2,6 @@ import { hashPassword } from "../utils/passwordUtils.js";
 
 import User from "../models/user.model.js";
 
-
 export const getAllUsers = async (req, res) => {
   try {
     const users = await User.findAll();
@@ -20,7 +19,6 @@ export const getAllUsers = async (req, res) => {
 export const createUser = async (req, res) => {
   try {
     const { firstName, lastName, email, username, password, role } = req.body;
-    //! MINISTRY AND DEPARTMENT REQUIRED?
     const password_hash = await hashPassword(password);
 
     const user = await User.create({
@@ -31,9 +29,18 @@ export const createUser = async (req, res) => {
       password_hash,
       role,
     });
-    return res
-      .status(201)
-      .json({ status: "success", message: "User created successfully", user });
+
+    if (user) {
+      return res
+        .status(201)
+        .json({
+          status: "success",
+          message: "User created successfully",
+          user,
+        });
+    } else {
+      throw new Error("Error creating user");
+    }
   } catch (error) {
     console.log(error);
     return res.status(500).json({
@@ -71,7 +78,7 @@ export const changePassword = async (req, res) => {
 
     // If the user is found, update the password and save
     if (user) {
-      user.password_hash = password_hash; 
+      user.password_hash = password_hash;
       updatedUser = await user.save();
     } else {
       return res.status(400).json({

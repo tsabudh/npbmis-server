@@ -16,7 +16,7 @@ const app = express();
 
 app.use(express.json());
 app.use(cors());
-app.options('*', cors());
+app.options("*", cors());
 
 dotenv.config();
 
@@ -27,9 +27,13 @@ app.use("/api/v1/ministries", ministryRoutes);
 app.use("/api/v1/projects", projectRoutes);
 app.use("/api/v1/users", userRoutes);
 
+app.use("*", (req, res) => {
+  res.status(404).json({ status: "failure", message: "Route not found" });
+});
+
 // Sync the database and start the server
 sequelize
-  .sync({ alter: true }) 
+  .sync({ alter: true })
   .then(() => {
     app.listen(3000, () => {
       console.log("Server is running on port 3000");

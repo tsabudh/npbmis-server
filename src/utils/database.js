@@ -8,6 +8,12 @@ const sequelize = new Sequelize(process.env.DB_URL, "postgres", "admin", {
   dialect: "postgres",
   logging: false,
   protocol: "postgres",
+  dialectOptions: {
+    ssl: {
+      require: true,
+      rejectUnauthorized: false,
+    },
+  },
 });
 
 export default sequelize;

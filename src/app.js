@@ -1,0 +1,40 @@
+// server.ts
+
+import express from "express";
+import sequelize from "./utils/database.js";
+import dotenv from "dotenv";
+
+import adminRoutes from "./routes/admin.routes.js";
+import authRoutes from "./routes/auth.routes.js";
+import departmentRoutes from "./routes/department.routes.js";
+import ministryRoutes from "./routes/ministry.routes.js";
+import projectRoutes from "./routes/project.routes.js";
+import userRoutes from "./routes/user.routes.js";
+import cors from "cors";
+
+const app = express();
+
+app.use(express.json());
+app.use(cors());
+app.options('*', cors());
+
+dotenv.config();
+
+app.use("/api/v1/admin", adminRoutes);
+app.use("/api/v1/auth", authRoutes);
+app.use("/api/v1/departments", departmentRoutes);
+app.use("/api/v1/ministries", ministryRoutes);
+app.use("/api/v1/projects", projectRoutes);
+app.use("/api/v1/users", userRoutes);
+
+// Sync the database and start the server
+sequelize
+  .sync({ alter: true }) 
+  .then(() => {
+    app.listen(3000, () => {
+      console.log("Server is running on port 3000");
+    });
+  })
+  .catch((err) => {
+    console.error("Unable to sync database:", err);
+  });

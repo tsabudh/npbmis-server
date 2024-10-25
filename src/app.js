@@ -42,3 +42,5 @@ sequelize
   .catch((err) => {
     console.error("Unable to sync database:", err);
   });
+
+export default app;

@@ -16,10 +16,34 @@ export const getAllUsers = async (req, res) => {
   }
 };
 
-export const createUser = async (req, res) => {
+export const getMyDetails = async (req, res) => {
+  try {
+    const userId = res.locals.userId;
+    const user = await User.findOne({ where: { user_id: userId } });
+
+    if (!user) {
+      return res.status(404).json({
+        status: "failure",
+        message: "User not found",
+      });
+    }
+    res.status(200).json({
+      status: "success",
+      data: user,
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({
+      status: "failure",
+      message: error.message,
+    });
+  }
+};
+export const createUserDepreciated = async (req, res) => {
   try {
     const { firstName, lastName, email, username, password, role } = req.body;
     const password_hash = await hashPassword(password);
+    console.log(password_hash);
 
     const user = await User.create({
       first_name: firstName,
@@ -31,13 +55,11 @@ export const createUser = async (req, res) => {
     });
 
     if (user) {
-      return res
-        .status(201)
-        .json({
-          status: "success",
-          message: "User created successfully",
-          user,
-        });
+      return res.status(201).json({
+        status: "success",
+        message: "User created successfully",
+        user,
+      });
     } else {
       throw new Error("Error creating user");
     }
@@ -46,6 +68,66 @@ export const createUser = async (req, res) => {
     return res.status(500).json({
       status: "failure",
       message: error.message,
+      source: "createUser",
+    });
+  }
+};
+export const createUser = async (req, res) => {
+  try {
+    const { firstName, lastName, email, username, password, role, sectorId } =
+      req.body;
+
+    // Validate required fields
+    if (
+      !firstName ||
+      !lastName ||
+      !email ||
+      !username ||
+      !password ||
+      !role ||
+      !sectorId
+    ) {
+      return res.status(400).json({
+        status: "failure",
+        message: "All fields are required.",
+      });
+    }
+
+    // Hash the password
+    const password_hash = await hashPassword(password);
+
+    // Create a new instance of the User model
+    const user = User.build({
+      first_name: firstName,
+      last_name: lastName,
+      email,
+      username,
+      password_hash,
+      role,
+      sector_id: sectorId,
+    });
+
+    // Save the user to the database
+    await user.save();
+
+    // Send success response
+    return res.status(201).json({
+      status: "success",
+      message: "User created successfully",
+      user,
+    });
+  } catch (error) {
+    console.error("Error creating user:", error);
+
+    // Check for Sequelize validation errors
+    const errorMessage =
+      error.errors?.[0]?.message ||
+      error.message ||
+      "An error occurred while creating the user.";
+
+    return res.status(500).json({
+      status: "failure",
+      message: errorMessage,
       source: "createUser",
     });
   }

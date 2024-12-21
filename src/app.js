@@ -3,14 +3,17 @@
 import express from "express";
 import sequelize from "./utils/database.js";
 import dotenv from "dotenv";
-
 import adminRoutes from "./routes/admin.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 import departmentRoutes from "./routes/department.routes.js";
 import ministryRoutes from "./routes/ministry.routes.js";
 import projectRoutes from "./routes/project.routes.js";
 import userRoutes from "./routes/user.routes.js";
+import sectorRoutes from "./routes/sector.routes.js";
+import commonRoutes from "./routes/common.routes.js";
+
 import cors from "cors";
+import "./models/associations.js";
 
 const app = express();
 
@@ -26,6 +29,8 @@ app.use("/api/v1/departments", departmentRoutes);
 app.use("/api/v1/ministries", ministryRoutes);
 app.use("/api/v1/projects", projectRoutes);
 app.use("/api/v1/users", userRoutes);
+app.use("/api/v1/sectors", sectorRoutes);
+app.use("/api/v1/common", commonRoutes);
 
 app.use("*", (req, res) => {
   res.status(404).json({ status: "failure", message: "Route not found" });
@@ -33,7 +38,10 @@ app.use("*", (req, res) => {
 
 // Sync the database and start the server
 sequelize
-  .sync({ alter: true })
+  .sync({
+    alter: true,
+    force: false, // change this to force database sync
+  })
   .then(() => {
     app.listen(3000, () => {
       console.log("Server is running on port 3000");

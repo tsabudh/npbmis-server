@@ -2,6 +2,7 @@ import validator from "validator";
 import { DataTypes } from "sequelize";
 
 import sequelize from "../utils/database.js";
+import Sector from "./sector.model.js";
 
 const User = sequelize.define(
   "User",
@@ -25,15 +26,30 @@ const User = sequelize.define(
       type: DataTypes.STRING,
       allowNull: false,
     },
-    created_at: {
-      type: DataTypes.DATE,
-      allowNull: true,
-      defaultValue: DataTypes.NOW, // Matches CURRENT_TIMESTAMP
-    },
 
     role: {
-      type: DataTypes.ENUM("DATA_APPROVER", "DATA_ENTRY", "SUPER_ADMIN"), // Define the enum with possible values
+      type: DataTypes.ENUM(
+        "DATA_PREPARE",
+        "DATA_SUBMIT",
+        "DATA_APPROVE",
+        "SUPER_ADMIN"
+      ),
       allowNull: false,
+    },
+    level: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 1,
+    },
+    sector_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: {
+        model: "sectors",
+        key: "id",
+      },
+      onDelete: "SET NULL", // Don't delete the user, set sectorId to NULL
+      onUpdate: "CASCADE", // Update the sectorId if the sector's ID changes
     },
     username: {
       type: DataTypes.STRING,
@@ -72,13 +88,19 @@ const User = sequelize.define(
       type: DataTypes.DATE,
       allowNull: true,
     },
+    extra: {
+      type: DataTypes.JSONB,
+      allowNull: true,
+    },
   },
   {
     defaultScope: {
       attributes: { exclude: ["password_hash"] },
     },
-    timestamps: false, // Disable Sequelize auto-adding createdAt and updatedAt
-    tableName: "users", // Ensures Sequelize uses the exact table name
+
+    modelName: "User",
+    tableName: "users",
+    timestamps: true,
   }
 );
 

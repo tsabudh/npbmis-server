@@ -1,5 +1,5 @@
 import sequelize from "../utils/database.js";
-import { DataTypes } from 'sequelize';
+import { DataTypes } from "sequelize";
 
 const Department = sequelize.define(
   "Department",

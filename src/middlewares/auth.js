@@ -46,6 +46,7 @@ export const verifyToken = async (req, res, next) => {
 
     res.locals.userId = thisUser.dataValues.user_id;
     res.locals.userRole = thisUser.dataValues.role;
+    res.locals.userSectorId = thisUser.dataValues.sector_id;
 
     updateLastSeen(decodedToken.id);
 
@@ -105,8 +106,6 @@ export const login = async (req, res) => {
       });
     }
 
-    console.log("passwords:", password, user.dataValues.password_hash);
-
     const correctPassword = await bcrypt.compare(
       password,
       user.dataValues.password_hash
@@ -130,6 +129,7 @@ export const login = async (req, res) => {
       status: "success",
       id: req.body.userId,
       token,
+      user,
     });
   } catch (e) {
     console.log(e);
@@ -140,13 +140,26 @@ export const login = async (req, res) => {
     });
   }
 };
-
 export const authorizeOnly = (role) => async (req, res, next) => {
-  console.log(role);
-  if (res.locals.userRole !== role) {
+  // If the role is a string, convert it into an array for consistency
+  const roles = Array.isArray(role) ? role : [role];
+
+  // Check if the user's role is included in the array of allowed roles
+  if (!roles.includes(res.locals.userRole)) {
     return res.status(403).json({
       status: "failure",
-      message: "You are not authorized to access this route.",
+      message: "You are not authorized to make this request.",
+    });
+  }
+
+  next();
+};
+
+export const authorizeLevelAndAbove = (level) => async (req, res, next) => {
+  if (res.locals.userLevel < level) {
+    return res.status(403).json({
+      status: "failure",
+      message: "You do not have clearance for this request.",
     });
   }
 

@@ -11,6 +11,7 @@ import projectRoutes from "./routes/project.routes.js";
 import userRoutes from "./routes/user.routes.js";
 import sectorRoutes from "./routes/sector.routes.js";
 import commonRoutes from "./routes/common.routes.js";
+import rejectionRoutes from "./routes/rejection.routes.js";
 
 import cors from "cors";
 import "./models/associations.js";
@@ -31,6 +32,7 @@ app.use("/api/v1/projects", projectRoutes);
 app.use("/api/v1/users", userRoutes);
 app.use("/api/v1/sectors", sectorRoutes);
 app.use("/api/v1/common", commonRoutes);
+app.use("/api/v1/rejections", rejectionRoutes);
 
 app.use("*", (req, res) => {
   res.status(404).json({ status: "failure", message: "Route not found" });
@@ -40,7 +42,7 @@ app.use("*", (req, res) => {
 sequelize
   .sync({
     alter: true,
-    force: false, // change this to force database sync
+    // force: false, // change this to force database sync
   })
   .then(() => {
     app.listen(3000, () => {

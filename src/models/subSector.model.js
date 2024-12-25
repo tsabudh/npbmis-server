@@ -16,6 +16,7 @@ const SubSector = sequelize.define(
 
     name: {
       type: DataTypes.STRING,
+      unique: true,
       allowNull: false,
     },
     nepali_name: {
@@ -41,9 +42,9 @@ const SubSector = sequelize.define(
   {
     modelName: "SubSector",
     tableName: "sub_sectors",
+    timestamps: false,
   }
 );
 
-
-
 export default SubSector;
+

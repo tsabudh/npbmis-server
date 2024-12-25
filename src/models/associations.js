@@ -43,11 +43,11 @@ Sector.hasMany(Project, {
 });
 
 Sector.hasMany(SubSector, {
-  foreignKey: "sectorId",
+  foreignKey: "sector_id",
   onDelete: "CASCADE",
   onUpdate: "CASCADE",
 });
 
 SubSector.belongsTo(Sector, {
-  foreignKey: "sectorId",
+  foreignKey: "sector_id",
 });

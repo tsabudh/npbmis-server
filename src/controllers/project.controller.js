@@ -1,11 +1,14 @@
 import {
+  DATA_DRAFT_ROLES,
   PROJECT_ASSIGNED_TO_DATA_APPROVE,
   PROJECT_ASSIGNED_TO_DATA_SUBMIT,
 } from "../constants/userRoles.js";
 import Project from "../models/project.model.js";
 import Sector from "../models/sector.model.js";
-import { Op } from "sequelize"; // Sequelize operators for querying
+import { Op, Transaction } from "sequelize"; // Sequelize operators for querying
 import User from "../models/user.model.js";
+import sequelize from "../utils/database.js";
+import Rejection from "../models/rejection.model.js";
 
 export const getAllProjectsAssigned = async (req, res) => {
   try {
@@ -67,7 +70,10 @@ export const getAllProjectsAssigned = async (req, res) => {
 
 export const getAllProjects = async (req, res) => {
   try {
-    const filter = {};
+    const filter = {
+      approval_status: {
+        [Op.ne]: "DRAFT",      },
+    };
     const sector_id = res.locals.userSectorId;
 
     if (res.locals.userRole !== "SUPER_ADMIN") {
@@ -299,6 +305,54 @@ export const saveDraftProject = async (req, res) => {
   }
 };
 
+export const getDraftProjects = async (req, res) => {
+  try {
+    const { userRole } = res.locals; // Assuming user role is available in res.locals
+    const filter = {};
+
+    // Define approval status based on user role
+    let approvalStatus = "DRAFT";
+
+    if (!DATA_DRAFT_ROLES.includes("DATA_PREPARE")) {
+      return res.status(403).json({
+        status: "failure",
+        message: "You do not have permission to view these projects.",
+      });
+    }
+
+    // Add the approval status filter to the query
+    filter.approval_status = approvalStatus;
+    filter.entry_by = res.locals.userId;
+
+    // Fetch projects based on the filter
+    const projects = await Project.findAll({
+      where: filter,
+      include: [
+        {
+          model: Sector,
+          attributes: ["name"], // Include sector name in the result
+          required: false,
+        },
+      ],
+    });
+
+    // Map results to include sector_name and return them
+    const projectsWithSectorName = projects.map((project) => ({
+      ...project.toJSON(),
+      sector_name: project.Sector ? project.Sector.name : null,
+      Sector: null,
+    }));
+
+    return res.status(200).json({
+      status: "success",
+      data: projectsWithSectorName,
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({ message: error.message, error });
+  }
+};
+
 export const getAProject = async (req, res) => {
   try {
     // Fetch the project by its primary key
@@ -448,12 +502,32 @@ export const approveProject = async (req, res) => {
   }
 };
 
+// Reject a project
 export const rejectProject = async (req, res) => {
+  const transaction = await sequelize.transaction(); // Start a transaction
+
   try {
-    const { projectId } = req.body;
+    const { projectId, message } = req.body;
+
+    // Ensure rejection message is provided
+    if (!message) {
+      return res.status(400).json({
+        status: "failure",
+        message: "Rejection message is required",
+      });
+    }
+    if (!projectId) {
+      return res.status(400).json({
+        status: "failure",
+        message: "Field projectId is required",
+      });
+    }
 
     // Find the project by its ID
-    const project = await Project.findOne({ where: { project_id: projectId } });
+    const project = await Project.findOne({
+      where: { project_id: projectId },
+      transaction, // Include the transaction
+    });
 
     if (!project) {
       return res.status(404).json({
@@ -462,7 +536,7 @@ export const rejectProject = async (req, res) => {
       });
     }
 
-    // Update the project's approval_status to:
+    // Determine the new approval status
     let newStatus;
     if (
       res.locals.userRole === "DATA_APPROVE" &&
@@ -470,7 +544,7 @@ export const rejectProject = async (req, res) => {
         project.dataValues.approval_status
       )
     ) {
-      newStatus = "APPROVAL_REJECTED";
+      newStatus = "SUBMISSION_REJECTED";
     } else if (
       res.locals.userRole === "DATA_SUBMIT" &&
       PROJECT_ASSIGNED_TO_DATA_SUBMIT.includes(
@@ -479,16 +553,39 @@ export const rejectProject = async (req, res) => {
     ) {
       newStatus = "SUBMISSION_REJECTED";
     } else {
-      return res.status(404).json({
+      return res.status(403).json({
         status: "failure",
         message:
           "You are trying to reject a project that is not assigned to you.",
       });
     }
-    project.approval_status = newStatus;
 
-    // Save the updated project
-    await project.save();
+    // Update project's approval_status
+    project.approval_status = newStatus;
+    await project.save({ transaction }); // Save within the transaction
+
+
+    // Deelte previous rejection record
+
+    await Rejection.destroy({
+      where: {
+        project_id: projectId,
+      },
+      transaction,
+    });
+    
+    // Create a rejection record
+    await Rejection.create(
+      {
+        message,
+        project_id: projectId,
+        rejected_by: res.locals.userId, // Assuming user ID is stored in res.locals
+      },
+      { transaction }
+    );
+
+    // Commit the transaction if all operations succeed
+    await transaction.commit();
 
     return res.status(200).json({
       status: "success",
@@ -496,9 +593,11 @@ export const rejectProject = async (req, res) => {
       project,
     });
   } catch (error) {
+    // Rollback the transaction on error
+    await transaction.rollback();
     return res.status(500).json({
       status: "failure",
-      message: "Error submitting project",
+      message: "Error rejecting project",
       error: error.message,
     });
   }

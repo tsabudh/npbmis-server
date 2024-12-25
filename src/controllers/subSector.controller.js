@@ -1,16 +1,9 @@
 import Sector from "../models/sector.model.js";
 import SubSector from "../models/subSector.model.js";
 
-export const getAllSectors = async (req, res) => {
+export const getAllSubSectors = async (req, res) => {
   try {
-    const users = await Sector.findAll({
-      include: [
-        {
-          model: SubSector,
-          as: "SubSectors",
-        },
-      ],
-    });
+    const users = await SubSector.findAll();
     return res.status(200).json({
       status: "success",
       data: users,

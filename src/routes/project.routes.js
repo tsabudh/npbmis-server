@@ -6,12 +6,13 @@ import {
   getAllProjects,
   getAllProjectsAssigned,
   getAProject,
+  getDraftProjects,
   prepareProject,
   rejectProject,
   saveDraftProject,
   submitProject,
 } from "../controllers/project.controller.js";
-import { DATA_ENTRY_ROLES } from "../constants/userRoles.js";
+import { DATA_DRAFT_ROLES, DATA_ENTRY_ROLES } from "../constants/userRoles.js";
 
 const router = Router();
 
@@ -20,6 +21,7 @@ router.use(verifyToken);
 router.get("/", getAllProjects);
 router.post("/", authorizeOnly(DATA_ENTRY_ROLES), createProject);
 router.get("/assigned", getAllProjectsAssigned);
+router.get("/drafts", authorizeOnly(DATA_DRAFT_ROLES), getDraftProjects);
 router.get("/one/:projectId", getAProject);
 router.patch("/one/save", authorizeOnly(DATA_ENTRY_ROLES), saveDraftProject);
 router.post("/one/prepare", authorizeOnly("DATA_PREPARE"), prepareProject);

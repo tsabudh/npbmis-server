@@ -1,6 +1,8 @@
 import { hashPassword } from "../utils/passwordUtils.js";
 
 import User from "../models/user.model.js";
+import { sendLocalMail } from "../utils/mail.js";
+import catchAsync from "../utils/catchAsync.js";
 
 export const getAllUsers = async (req, res) => {
   try {
@@ -19,7 +21,7 @@ export const getAllUsers = async (req, res) => {
 export const getMyDetails = async (req, res) => {
   try {
     const userId = res.locals.userId;
-    const user = await User.findOne({ where: { user_id: userId } });
+    const user = await User.findOne({ where: { id: userId } });
 
     if (!user) {
       return res.status(404).json({
@@ -72,66 +74,9 @@ export const createUserDepreciated = async (req, res) => {
     });
   }
 };
-export const createUser = async (req, res) => {
-  try {
-    const { firstName, lastName, email, username, password, role, sectorId } =
-      req.body;
 
-    // Validate required fields
-    if (
-      !firstName ||
-      !lastName ||
-      !email ||
-      !username ||
-      !password ||
-      !role ||
-      !sectorId
-    ) {
-      return res.status(400).json({
-        status: "failure",
-        message: "All fields are required.",
-      });
-    }
 
-    // Hash the password
-    const password_hash = await hashPassword(password);
 
-    // Create a new instance of the User model
-    const user = User.build({
-      first_name: firstName,
-      last_name: lastName,
-      email,
-      username,
-      password_hash,
-      role,
-      sector_id: sectorId,
-    });
-
-    // Save the user to the database
-    await user.save();
-
-    // Send success response
-    return res.status(201).json({
-      status: "success",
-      message: "User created successfully",
-      user,
-    });
-  } catch (error) {
-    console.error("Error creating user:", error);
-
-    // Check for Sequelize validation errors
-    const errorMessage =
-      error.errors?.[0]?.message ||
-      error.message ||
-      "An error occurred while creating the user.";
-
-    return res.status(500).json({
-      status: "failure",
-      message: errorMessage,
-      source: "createUser",
-    });
-  }
-};
 
 export const changePassword = async (req, res) => {
   try {
@@ -155,7 +100,7 @@ export const changePassword = async (req, res) => {
     const password_hash = await hashPassword(newPassword);
 
     const user = await User.findOne({
-      where: { user_id: userId },
+      where: { id: userId },
     });
 
     // If the user is found, update the password and save
@@ -178,6 +123,98 @@ export const changePassword = async (req, res) => {
       status: "failure",
       message: error.message,
       source: "resetpassword",
+    });
+  }
+};
+
+export const updateUser = async (req, res) => {
+  try {
+    const userId = res.locals.userId;
+    const { firstName, lastName, email, username, role, sectorId } = req.body;
+
+    // Validate required fields
+    if (!userId) {
+      return res.status(400).json({
+        status: "failure",
+        message: "User ID is required.",
+      });
+    }
+
+    // Find the user
+    const user = await User.findOne({
+      where: { id: userId },
+    });
+
+    // If the user is found, update the user and save
+    if (user) {
+      user.first_name = firstName;
+      user.last_name = lastName;
+      user.email = email;
+      user.username = username;
+      user.role = role;
+      user.sector_id = sectorId;
+
+      await user.save();
+
+      return res.status(200).json({
+        status: "success",
+        message: "User updated successfully",
+        user,
+      });
+    } else {
+      return res.status(404).json({
+        status: "failure",
+        message: "User not found",
+      });
+    }
+  } catch (error) {
+    return res.status(500).json({
+      status: "failure",
+      message: error.message,
+      source: "updateUser",
+    });
+  }
+};
+
+export const sendPasswordReset = async (req, res) => {
+  try {
+    const { from, to, subject, text } = req.body;
+
+    // Validate required fields
+    if (!from || !to || !subject || !text) {
+      return res.status(400).json({
+        status: "failure",
+        message: "All fields are required.",
+      });
+    }
+
+    const mailOptions = {
+      from,
+      to,
+      subject,
+      text,
+    };
+
+    sendLocalMail(mailOptions);
+
+    // Send success response
+    return res.status(201).json({
+      status: "success",
+      message: "Mail sent successfully",
+    });
+  } catch (error) {
+    console.error("Error creating user:", error);
+
+    // Check for Sequelize validation errors
+    const errorMessage =
+      error.errors?.[0]?.message ||
+      error.message ||
+      "An error occurred while creating the user.";
+
+    return res.status(500).json({
+      status: "failure",
+      message: errorMessage,
+      source: "createUser",
     });
   }
 };

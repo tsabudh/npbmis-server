@@ -1,14 +1,24 @@
 import {
+  DATA_APPROVE_ROLES,
   DATA_DRAFT_ROLES,
   PROJECT_ASSIGNED_TO_DATA_APPROVE,
   PROJECT_ASSIGNED_TO_DATA_SUBMIT,
-} from "../constants/userRoles.js";
+} from "../constants/userConstants.js";
 import Project from "../models/project.model.js";
 import Sector from "../models/sector.model.js";
-import { Op, Transaction } from "sequelize"; // Sequelize operators for querying
+import { Op } from "sequelize"; // Sequelize operators for querying
 import User from "../models/user.model.js";
 import sequelize from "../utils/database.js";
 import Rejection from "../models/rejection.model.js";
+import Notification from "../models/notification.model.js";
+import { createPalikaNotification } from "../utils/notification.js";
+import {
+  PROJECT_APPROVABLE,
+  PROJECT_EVALUABLE,
+  PROJECT_SUBMITTABLE,
+  PROJECT_VERIFIABLE,
+  SDG_CODES,
+} from "../constants/projectConstants.js";
 
 export const getAllProjectsAssigned = async (req, res) => {
   try {
@@ -72,11 +82,12 @@ export const getAllProjects = async (req, res) => {
   try {
     const filter = {
       approval_status: {
-        [Op.ne]: "DRAFT",      },
+        [Op.ne]: "DRAFT",
+      },
     };
-    const sector_id = res.locals.userSectorId;
+    const sector_id = res.locals.userDepartmentId;
 
-    if (res.locals.userRole !== "SUPER_ADMIN") {
+    if (!DATA_APPROVE_ROLES.includes(res.locals.userRole)) {
       filter.sector_id = sector_id;
     }
     const results = await Project.findAll({
@@ -107,34 +118,49 @@ export const getAllProjects = async (req, res) => {
 export const createProject = async (req, res) => {
   try {
     const {
-      name,
+      annual_allocation,
+      associated_documents,
+      beneficiaries_dalit,
+      beneficiaries_diff_abled,
+      beneficiaries_female,
+      beneficiaries_indigenous,
+      beneficiaries_janajati,
+      beneficiaries_male,
+      beneficiaries_population,
+      beneficiaries_total_houses,
+      budget_cycle_type,
+      budget_term_period,
+      budget,
+      climate_code,
       description,
-      status,
-      sector_id,
-      nepali_name,
-      priority_code,
-      budget_total_cost,
-      budget_annual_allocation,
-      time_period,
-      beneficiaries,
-      objectives,
       expected_outcomes,
+      funding_policy,
+      funding_source,
+      gender_code,
+      id,
       implementation_area,
-      responsible_officer_name,
+      implementation_method,
+      implementation_wards,
+      inception_status,
+      name,
+      nepali_name,
+      objectives,
+      priority_code,
+      priority,
+      project_nature,
+      requested_by,
       responsible_officer_contact,
       responsible_officer_email,
-      implementation_method,
-      associated_documents,
-      requested_by,
+      responsible_officer_name,
       sdg_code,
-      sdg_name,
-      gender_code,
-      climate_code,
-      strategic_code,
-      project_nature,
-      inception_status,
-      priority,
-      budget_code,
+      sector_id,
+      selected_by,
+      selected_date,
+      selection_document,
+      selection_status,
+      state,
+      strategic_code_id,
+      sub_sector_id,
     } = req.body;
 
     const userId = res.locals.userId;
@@ -146,35 +172,53 @@ export const createProject = async (req, res) => {
 
     // Create the project in the database
     const project = await Project.create({
-      name,
+      annual_allocation,
+      approval_status: "DRAFT",
+      associated_documents,
+      beneficiaries_dalit,
+      beneficiaries_diff_abled,
+      beneficiaries_female,
+      beneficiaries_indigenous,
+      beneficiaries_janajati,
+      beneficiaries_male,
+      beneficiaries_population,
+      beneficiaries_total_houses,
+      budget_cycle_type,
+      budget_term_period,
+      budget,
+      climate_code,
       description,
-      status,
-      sector_id,
-      nepali_name,
-      priority_code,
-      budget_total_cost,
-      budget_annual_allocation,
-      time_period,
-      beneficiaries,
-      objectives,
+      entry_by: user.getDataValue("id"),
       expected_outcomes,
+      funding_policy,
+      funding_source,
+      gender_code,
+      id,
       implementation_area,
-      responsible_officer_name,
+      implementation_method,
+      implementation_wards,
+      inception_status,
+      name,
+      nepali_name,
+      objectives,
+      prepared_by: user.getDataValue("id"),
+      priority_code,
+      priority,
+      project_nature,
+      requested_by,
       responsible_officer_contact,
       responsible_officer_email,
-      implementation_method,
-      entry_by: user.getDataValue("user_id"),
-      associated_documents,
-      requested_by,
-      sdg_code,
-      sdg_name,
-      gender_code,
-      climate_code,
-      strategic_code,
-      project_nature,
-      inception_status,
-      priority,
-      budget_code,
+      responsible_officer_name,
+      sdg_code: SDG_CODES[parseInt(sdg_code)].code,
+      sdg_name: SDG_CODES[parseInt(sdg_code)].name,
+      sector_id,
+      selected_by,
+      selected_date,
+      selection_document,
+      selection_status,
+      state,
+      strategic_code_id,
+      sub_sector_id,
     });
 
     return res.status(201).json({
@@ -196,7 +240,7 @@ export const createProject = async (req, res) => {
 export const saveDraftProject = async (req, res) => {
   try {
     const {
-      project_id,
+      id,
       name,
       description,
       status,
@@ -236,15 +280,15 @@ export const saveDraftProject = async (req, res) => {
       throw new Error("User not found!");
     }
 
-    if (!project_id) {
+    if (!id) {
       return res.status(400).json({
         status: "failure",
         message: "Project ID is required",
       });
     }
-    // Find the existing project by project_id
+    // Find the existing project by id
     const project = await Project.findOne({
-      where: { project_id },
+      where: { id },
     });
 
     // If the project does not exist, return an error
@@ -274,7 +318,7 @@ export const saveDraftProject = async (req, res) => {
       responsible_officer_contact,
       responsible_officer_email,
       implementation_method,
-      prepared_by: user.getDataValue("user_id"),
+      prepared_by: user.getDataValue("id"),
       associated_documents,
       requested_by,
       sdg_code,
@@ -394,27 +438,50 @@ export const getAProject = async (req, res) => {
   }
 };
 
-export const prepareProject = async (req, res) => {
+export const postVerifyProject = async (req, res) => {
   try {
-    const { projectId } = req.body;
+    const { id } = req.body;
 
     // Find the project by its ID
-    const project = await Project.findOne({ where: { project_id: projectId } });
+    const project = await Project.findOne({ where: { id } });
 
     if (!project) {
       return res.status(404).json({
         status: "failure",
-        message: "Project of provided Id not found",
+        message: "Project of provided 'id' not found",
+      });
+    }
+
+    if (project.approval_status === "VERIFIED") {
+      return res.status(400).json({
+        status: "failure",
+        message: "Project is already verified.",
+      });
+    }
+
+    if (!PROJECT_VERIFIABLE.includes(project.approval_status)) {
+      return res.status(400).json({
+        status: "failure",
+        message: "Project is not VERIFIABLE.",
       });
     }
 
     const userId = res.locals.userId;
-    // Update the project's approval_status to "PREPARED"
-    project.prepared_by = userId;
-    project.approval_status = "PREPARED";
+    const userPalikaId = res.locals.userPalikaId;
+
+    // Update the project's approval_status to "VERIFIED"
+    project.verified_by = userId;
+    project.approval_status = "VERIFIED";
 
     // Save the updated project
     await project.save();
+
+    // const notification = await createPalikaNotification({
+    //   palika_id: userPalikaId,
+    //   type: "PROJECT_ASSIGNED:SUBMIT",
+    //   message: `Project ${project.name} has been prepared by ${userId}`,
+    //   redirect_id: project.id,
+    // });
 
     return res.status(200).json({
       status: "success",
@@ -430,12 +497,12 @@ export const prepareProject = async (req, res) => {
   }
 };
 
-export const submitProject = async (req, res) => {
+export const postSubmitProject = async (req, res) => {
   try {
-    const { project_id } = req.body;
+    const { id } = req.body;
 
     // Find the project by its ID
-    const project = await Project.findOne({ where: { project_id } });
+    const project = await Project.findOne({ where: { id } });
 
     if (!project) {
       return res.status(404).json({
@@ -443,8 +510,24 @@ export const submitProject = async (req, res) => {
         message: "Project of provided Id not found",
       });
     }
+    if (project.approval_status === "SUBMITTED") {
+      return res.status(400).json({
+        status: "failure",
+        message: "Project is already submitted.",
+      });
+    }
+
+    if (!PROJECT_SUBMITTABLE.includes(project.approval_status)) {
+      return res.status(400).json({
+        status: "failure",
+        message: "Project is not SUBMITTABLE.",
+      });
+    }
 
     const userId = res.locals.userId;
+    const userPalikaId = res.locals.userPalikaId;
+
+    //TODO don't expose string 'SUBMITTED' directly
     // Update the project's approval_status to "SUBMITTED"
     project.submitted_by = userId;
     project.approval_status = "SUBMITTED";
@@ -452,12 +535,20 @@ export const submitProject = async (req, res) => {
     // Save the updated project
     await project.save();
 
+    // const notification = await createPalikaNotification({
+    //   palika_id: userPalikaId,
+    //   type: "PROJECT_APPROVAL_STATUS:SUBMITTED",
+    //   message: `Project ${project.name} has been submitted by ${userId}`,
+    //   redirect_id: project.id,
+    // });
+
     return res.status(200).json({
       status: "success",
       message: "Project submitted successfully",
       project,
     });
   } catch (error) {
+    console.log(error);
     return res.status(500).json({
       status: "failure",
       message: "Error submitting project",
@@ -465,12 +556,12 @@ export const submitProject = async (req, res) => {
     });
   }
 };
-export const approveProject = async (req, res) => {
+export const postApproveProject = async (req, res) => {
   try {
-    const { project_id } = req.body;
+    const { id } = req.body;
 
     // Find the project by its ID
-    const project = await Project.findOne({ where: { project_id } });
+    const project = await Project.findOne({ where: { id } });
 
     if (!project) {
       return res.status(404).json({
@@ -479,7 +570,21 @@ export const approveProject = async (req, res) => {
       });
     }
 
+    if (project.approval_status === "APPROVED") {
+      return res.status(400).json({
+        status: "failure",
+        message: "Project is already approved.",
+      });
+    }
+    if (!PROJECT_APPROVABLE.includes(project.approval_status)) {
+      return res.status(400).json({
+        status: "failure",
+        message: "Project is not APPROVABLE.",
+      });
+    }
+
     const userId = res.locals.userId;
+    const userPalikaId = res.locals.userPalikaId;
 
     // Update the project's approval_status to "SUBMITTED"
     project.approved_by = userId;
@@ -487,6 +592,13 @@ export const approveProject = async (req, res) => {
 
     // Save the updated project
     await project.save();
+
+    // const notification = await createPalikaNotification({
+    //   palikaId: userPalikaId,
+    //   type: "PROJECT_NOTICE",
+    //   message: `Project ${project.name} has been approved by ${userId}`,
+    //   redirectId: project.id,
+    // });
 
     return res.status(200).json({
       status: "success",
@@ -496,7 +608,65 @@ export const approveProject = async (req, res) => {
   } catch (error) {
     return res.status(500).json({
       status: "failure",
-      message: "Error submitting project",
+      message: "Error approving project",
+      error: error.message,
+    });
+  }
+};
+
+export const postEvaluateProject = async (req, res) => {
+  try {
+    const { id } = req.body;
+
+    // Find the project by its ID
+    const project = await Project.findOne({ where: { id } });
+
+    if (!project) {
+      return res.status(404).json({
+        status: "failure",
+        message: "Project of provided Id not found",
+      });
+    }
+
+    if (project.approval_status === "EVALUATED") {
+      return res.status(400).json({
+        status: "failure",
+        message: "Project is already evaluated.",
+      });
+    }
+    if (!PROJECT_EVALUABLE.includes(project.approval_status)) {
+      return res.status(400).json({
+        status: "failure",
+        message: "Project is not EVALUABLE.",
+      });
+    }
+
+    const userId = res.locals.userId;
+
+    // Update the project's approval_status to "SUBMITTED"
+    project.approved_by = userId;
+    project.approval_status = "EVALUATED";
+
+    // Save the updated project
+    await project.save();
+
+    // const notification = await createPalikaNotification({
+    //   palikaId: userPalikaId,
+    //   type: "PROJECT_NOTICE",
+    //   message: `Project ${project.name} has been approved by ${userId}`,
+    //   redirectId: project.id,
+    // });
+
+    return res.status(200).json({
+      status: "success",
+      message: "Project evaluated successfully",
+      project,
+    });
+  } catch (error) {
+    
+    return res.status(500).json({
+      status: "failure",
+      message: "Error approving project",
       error: error.message,
     });
   }
@@ -507,16 +677,19 @@ export const rejectProject = async (req, res) => {
   const transaction = await sequelize.transaction(); // Start a transaction
 
   try {
-    const { projectId, message } = req.body;
+    const { id, message } = req.body;
+
+    const userId = res.locals.userId;
+    const userPalikaId = res.locals.userPalikaId;
 
     // Ensure rejection message is provided
     if (!message) {
       return res.status(400).json({
         status: "failure",
-        message: "Rejection message is required",
+        message: "Rejection message:'message' is required",
       });
     }
-    if (!projectId) {
+    if (!id) {
       return res.status(400).json({
         status: "failure",
         message: "Field projectId is required",
@@ -525,7 +698,7 @@ export const rejectProject = async (req, res) => {
 
     // Find the project by its ID
     const project = await Project.findOne({
-      where: { project_id: projectId },
+      where: { id },
       transaction, // Include the transaction
     });
 
@@ -564,21 +737,19 @@ export const rejectProject = async (req, res) => {
     project.approval_status = newStatus;
     await project.save({ transaction }); // Save within the transaction
 
-
-    // Deelte previous rejection record
-
+    // DelEte previous rejection record
     await Rejection.destroy({
       where: {
-        project_id: projectId,
+        id,
       },
       transaction,
     });
-    
+
     // Create a rejection record
     await Rejection.create(
       {
         message,
-        project_id: projectId,
+        id,
         rejected_by: res.locals.userId, // Assuming user ID is stored in res.locals
       },
       { transaction }
@@ -586,6 +757,13 @@ export const rejectProject = async (req, res) => {
 
     // Commit the transaction if all operations succeed
     await transaction.commit();
+
+    const notification = await createPalikaNotification({
+      palikaId: userPalikaId,
+      type: "PROJECT_NOTICE",
+      message: `Project ${project.name} has been REJECTED by ${userId}`,
+      redirectId: project.id,
+    });
 
     return res.status(200).json({
       status: "success",

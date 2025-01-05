@@ -9,7 +9,7 @@ const updateLastSeen = async (id) => {
     { last_seen: sequelize.fn("NOW") },
     {
       where: {
-        user_id: id,
+        id: id,
         last_seen: {
           [Op.or]: [
             { [Op.lt]: sequelize.literal("NOW() - INTERVAL '5 MINUTES'") },
@@ -44,11 +44,22 @@ export const verifyToken = async (req, res, next) => {
       });
     }
 
-    res.locals.userId = thisUser.dataValues.user_id;
-    res.locals.userRole = thisUser.dataValues.role;
-    res.locals.userSectorId = thisUser.dataValues.sector_id;
+    const palika = await thisUser.getPalika();
+    if (!palika) {
+      return res.status(401).json({
+        status: "failure",
+        message: "FATAL: User is not associated with any palika!",
+      });
+    }
 
-    updateLastSeen(decodedToken.id);
+    res.locals.userId = thisUser.dataValues.id;
+    res.locals.userRole = thisUser.dataValues.role;
+    res.locals.userPalikaId = thisUser.dataValues.palika_id;
+    res.locals.userJurisdictionLevel = thisUser.dataValues.jurisdiction_level;
+    res.locals.userDepartmentId = thisUser.dataValues.jurisdiction_departments;
+    res.locals.userWard = thisUser.dataValues.jurisdiction_wards;
+
+    thisUser.updateLastSeen();
 
     next();
   } catch (err) {
@@ -117,19 +128,17 @@ export const login = async (req, res) => {
       });
     }
     const payload = {
-      id: user.dataValues.user_id,
+      id: user.dataValues.id,
     };
-    console.log(payload);
     const token = jwt.sign(payload, process.env.JWT_SECRET, {
       expiresIn: "7d",
     });
-    await updateLastSeen(user.dataValues.user_id);
+    user.updateLastSeen();
 
     res.status(200).json({
       status: "success",
       id: req.body.userId,
       token,
-      user,
     });
   } catch (e) {
     console.log(e);

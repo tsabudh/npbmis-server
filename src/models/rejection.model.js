@@ -21,19 +21,20 @@ const Rejection = sequelize.define(
       allowNull: false,
       references: {
         model: "users",
-        key: "user_id",
+        key: "id",
       },
       onUpdate: "CASCADE",
     },
-    project_id:{
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        references: {
-            model: "projects",
-            key: "project_id",
-        },
-        onUpdate: "CASCADE",
-    }
+    project_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: {
+        model: "projects",
+        key: "id",
+      },
+      onUpdate: "CASCADE",
+      onDelete: "CASCADE",
+    },
   },
   {
     tableName: "rejections",

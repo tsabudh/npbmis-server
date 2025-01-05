@@ -3,15 +3,23 @@ import { DataTypes } from "sequelize";
 
 import sequelize from "../utils/database.js";
 import Sector from "./sector.model.js";
+import {
+  ALL_ADMINS,
+  ALL_USER_ROLES,
+  USER_JURISDICTIONS,
+  USER_ROLES_WITH_PALIKA_JURISDICTION,
+} from "../constants/userConstants.js";
+import Palika from "./palika.model.js";
+import Department from "./department.model.js";
 
 const User = sequelize.define(
   "User",
   {
-    user_id: {
+    id: {
       type: DataTypes.INTEGER,
       allowNull: false,
       primaryKey: true,
-      autoIncrement: true, // Matches the nextval('users_user_id_seq')
+      autoIncrement: true, // Matches the nextval('users_id_seq')
     },
     is_active: {
       type: DataTypes.BOOLEAN,
@@ -28,12 +36,7 @@ const User = sequelize.define(
     },
 
     role: {
-      type: DataTypes.ENUM(
-        "DATA_PREPARE",
-        "DATA_SUBMIT",
-        "DATA_APPROVE",
-        "SUPER_ADMIN"
-      ),
+      type: DataTypes.ENUM(ALL_USER_ROLES),
       allowNull: false,
     },
     level: {
@@ -41,15 +44,13 @@ const User = sequelize.define(
       allowNull: false,
       defaultValue: 1,
     },
-    sector_id: {
+    palika_id: {
       type: DataTypes.INTEGER,
-      allowNull: false,
+      allowNull: true,
       references: {
-        model: "sectors",
+        model: "palikas",
         key: "id",
       },
-      onDelete: "SET NULL", // Don't delete the user, set sectorId to NULL
-      onUpdate: "CASCADE", // Update the sectorId if the sector's ID changes
     },
     username: {
       type: DataTypes.STRING,
@@ -57,17 +58,19 @@ const User = sequelize.define(
       unique: true,
       validate: {
         len: {
-          args: [1, 15], // Enforce a length limit between 1 and 15 characters
+          args: [1, 15],
           msg: "Username must be between 1 and 15 characters.",
         },
-        isAlphanumeric(value) {
-          if (!validator.isAlphanumeric(value)) {
-            throw new Error("Username must only contain letters and numbers.");
+        isValidFormat(value) {
+          if (!/^[A-Za-z][A-Za-z0-9_-]*$/.test(value)) {
+            throw new Error(
+              "Username must start with a letter and can only contain letters, numbers, underscores (_), and hyphens (-)."
+            );
           }
-        },
-        startsWithLetter(value) {
-          if (!/^[A-Za-z]/.test(value)) {
-            throw new Error("Username must start with a letter.");
+          if (/_{2,}|-{2,}|[_-]$/.test(value)) {
+            throw new Error(
+              "Username cannot contain consecutive underscores or hyphens, or end with them."
+            );
           }
         },
       },
@@ -88,6 +91,18 @@ const User = sequelize.define(
       type: DataTypes.DATE,
       allowNull: true,
     },
+    jurisdiction_level: {
+      type: DataTypes.ENUM(USER_JURISDICTIONS),
+      allowNull: false,
+    },
+    jurisdiction_wards: {
+      type: DataTypes.ARRAY(DataTypes.INTEGER),
+      allowNull: true,
+    },
+    jurisdiction_departments: {
+      type: DataTypes.ARRAY(DataTypes.INTEGER),
+      allowNull: true,
+    },
     extra: {
       type: DataTypes.JSONB,
       allowNull: true,
@@ -101,9 +116,118 @@ const User = sequelize.define(
     modelName: "User",
     tableName: "users",
     timestamps: true,
+    validate: {
+      async validateRole() {
+        if (
+          USER_ROLES_WITH_PALIKA_JURISDICTION.includes(this.role) ===
+          (this.jurisdiction_level !== "PALIKA")
+        ) {
+          throw new Error(
+            "The specified jurisdiction_level exceeds/undermines the user's role clearance."
+          );
+        }
+      },
+
+      async validateJurisdiction() {
+        //  Skip validation if only last_seen is being updated
+        if (
+          this.changed().length === 1 &&
+          this.changed().includes("last_seen")
+        ) {
+          return;
+        }
+        const palika = await Palika.findByPk(this.palika_id);
+        if (!palika) {
+          throw new Error("Invalid palika_id provided.");
+        }
+        const validateWard = async () => {
+          if (
+            !this.jurisdiction_wards ||
+            this.jurisdiction_wards.length === 0
+          ) {
+            throw new Error(
+              "jurisdiction_wards is required when jurisdiction_level is 'WARD'."
+            );
+          }
+
+          // Set jurisdiction_departments to null if jurisdiction_level is WARD
+          this.jurisdiction_departments = null;
+          
+          const missingWards = this.jurisdiction_wards.filter(
+            (ward) => !palika.wards.includes(ward)
+          );
+
+          if (missingWards.length > 0) {
+            throw new Error(
+              `Invalid ward numbers provided: ${missingWards.join(", ")}`
+            );
+          }
+        };
+
+        const validateDepartment = async () => {
+          if (
+            !this.jurisdiction_departments ||
+            this.jurisdiction_departments.length === 0
+          ) {
+            throw new Error(
+              "jurisdiction_departments is required when jurisdiction_level is 'DEPARTMENT'."
+            );
+          }
+
+          // Set jurisdiction_wards to null if jurisdiction_level is DEPARTMENT
+          this.jurisdiction_wards = null;
+
+          const departments = await Department.findAll({
+            where: { id: this.jurisdiction_departments },
+            attributes: ["id"],
+          });
+
+          const validDepartmentIds = departments.map((dept) => dept.id);
+          const invalidDepartments = this.jurisdiction_departments.filter(
+            (dept) => !validDepartmentIds.includes(dept)
+          );
+
+          if (invalidDepartments.length > 0) {
+            throw new Error(
+              `The provided palika (palika_id: ${
+                this.palika_id
+              }) does not have the provided departments (jurisdiction_departments:[ ${invalidDepartments.join(
+                ", "
+              )} ])`
+            );
+          }
+        };
+
+        const validatePalika = async () => {
+          if (this.jurisdiction_level === "PALIKA") {
+            this.jurisdiction_wards = null;
+            this.jurisdiction_departments = null;
+          }
+        };
+
+        switch (this.jurisdiction_level) {
+          case "WARD":
+            await validateWard();
+            break;
+          case "DEPARTMENT":
+            await validateDepartment();
+            break;
+          case "PALIKA":
+            await validatePalika();
+            break;
+          default:
+            break;
+        }
+      },
+    },
   }
 );
 
+// Prototype method to update the last_seen field after each login
+User.prototype.updateLastSeen = async function () {
+  this.last_seen = new Date();
+  await this.save({ validate: false });
+};
 // Hook to ensure username,first_name and last_name is lowercase before saving to the database
 User.addHook("beforeSave", (user, options) => {
   if (user.username) {

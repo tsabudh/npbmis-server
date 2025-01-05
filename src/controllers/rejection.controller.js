@@ -7,7 +7,7 @@ export const getRejectionMessage = async (req, res) => {
 
     const rejection = await Rejection.findOne({
       where: {
-        project_id: projectId,
+        id: projectId,
       },
     });
     return res.status(200).json({

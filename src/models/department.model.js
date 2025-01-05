@@ -4,30 +4,36 @@ import { DataTypes } from "sequelize";
 const Department = sequelize.define(
   "Department",
   {
-    department_id: {
+    id: {
       type: DataTypes.INTEGER,
       allowNull: false,
       primaryKey: true,
       autoIncrement: true,
     },
-    department_name: {
+    name: {
       type: DataTypes.STRING,
       allowNull: false,
     },
-    ministry_id: {
+    palika_id: {
       type: DataTypes.INTEGER,
       allowNull: false,
       references: {
-        model: "ministries",
-        key: "ministry_id",
+        model: "palikas",
+        key: "id",
       },
-      onDelete: "CASCADE",
+      onDelete: "SET NULL",
       onUpdate: "CASCADE",
     },
   },
   {
     tableName: "departments",
-    timestamps: false,
+    timestamps: true,
+    indexes: [
+      {
+        unique: true,
+        fields: ["name", "palika_id"],
+      },
+    ],
   }
 );
 

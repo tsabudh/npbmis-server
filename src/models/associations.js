@@ -1,3 +1,4 @@
+import Department from "./department.model.js";
 import Notification, { UserNotifications } from "./notification.model.js";
 import Palika from "./palika.model.js";
 import Project from "./project.model.js";
@@ -74,7 +75,10 @@ Palika.hasMany(Notification, { foreignKey: "palika_id" });
 Palika.hasMany(StrategyCode, { foreignKey: "palika_id" });
 StrategyCode.belongsTo(Palika, { foreignKey: "palika_id" });
 
+Palika.hasMany(Department, { foreignKey: "palika_id" });
+Department.belongsTo(Palika, { foreignKey: "palika_id" });
+
 Project.belongsTo(StrategyCode, { foreignKey: "strategic_code_id" });
 StrategyCode.hasMany(Project, {
-  foreignKey: "strategic_code_id"
+  foreignKey: "strategic_code_id",
 });

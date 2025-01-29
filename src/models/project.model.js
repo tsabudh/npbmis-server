@@ -447,12 +447,12 @@ const Project = sequelize.define(
 );
 
 Project.beforeSave((project, options) => {
-  if (project.status === "NEW_OR_UPCOMING")
+  if (project.state === "NEW_OR_UPCOMING")
     if (!project.inception_status) {
       throw new Error(
         'Inception status is required when status is "NEW_OR_UPCOMING"'
       );
-    } else if (project.status === "ONGOING") {
+    } else if (project.state === "ONGOING") {
       project.inception_status = null;
     }
 

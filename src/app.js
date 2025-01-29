@@ -19,6 +19,8 @@ import cors from "cors";
 import "./models/associations.js";
 import AppError from "./utils/appError.js";
 
+import "./middlewares/crons.js";
+
 const app = express();
 
 app.use(express.json());

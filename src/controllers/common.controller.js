@@ -8,14 +8,14 @@ export const getProjectsSummary = async (req, res) => {
     // Get ongoing projects
     const ongoingProjects = await Project.count({
       where: {
-        status: "ONGOING",
+        state: "ONGOING",
       },
     });
 
     // Get future projects (NEW_OR_UPCOMING)
     const futureProjects = await Project.count({
       where: {
-        status: "NEW_OR_UPCOMING",
+        state: "NEW_OR_UPCOMING",
       },
     });
 

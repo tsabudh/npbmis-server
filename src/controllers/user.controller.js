@@ -3,6 +3,7 @@ import { hashPassword } from "../utils/passwordUtils.js";
 import User from "../models/user.model.js";
 import { sendLocalMail } from "../utils/mail.js";
 import catchAsync from "../utils/catchAsync.js";
+import Token from "../models/token.model.js";
 
 export const getAllUsers = async (req, res) => {
   try {
@@ -74,9 +75,6 @@ export const createUserDepreciated = async (req, res) => {
     });
   }
 };
-
-
-
 
 export const changePassword = async (req, res) => {
   try {
@@ -178,21 +176,42 @@ export const updateUser = async (req, res) => {
 
 export const sendPasswordReset = async (req, res) => {
   try {
-    const { from, to, subject, text } = req.body;
+    const { from, to, subject } = req.body;
+    const userId = res.locals.userId;
 
     // Validate required fields
-    if (!from || !to || !subject || !text) {
+    if (!from || !to || !subject) {
       return res.status(400).json({
         status: "failure",
         message: "All fields are required.",
       });
     }
 
+    const [token, created] = await Token.findOrCreate({
+      where: {
+        type: "PASSWORD_RESET_TOKEN",
+        user_id: userId,
+      },
+      defaults: {
+        type: "PASSWORD_RESET_TOKEN",
+        user_id: userId,
+      },
+    });
+
+    console.log("token", token, "created", created);
+
+    if (!created) {
+      return res.status(400).json({
+        status: "failure",
+        message:
+          "Password reset token already exists for this user. Please visit your email to reset your password.",
+      });
+    }
     const mailOptions = {
       from,
       to,
       subject,
-      text,
+      text: `Your password reset token is: ${token.code}`,
     };
 
     sendLocalMail(mailOptions);

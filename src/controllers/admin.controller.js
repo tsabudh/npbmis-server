@@ -4,6 +4,8 @@ import catchAsync from "../utils/catchAsync.js";
 import { ALL_ADMINS } from "../constants/userConstants.js";
 import Department from "../models/department.model.js";
 import StrategyCode from "../models/strategyCode.model.js";
+import Palika from "../models/palika.model.js";
+import { where } from "sequelize";
 
 export const resetPassword = async (req, res) => {
   try {
@@ -383,5 +385,49 @@ export const postCreateStrategyCode = catchAsync(async (req, res) => {
     status: "success",
     message: "Strategy code created successfully.",
     strategyCode,
+  });
+});
+
+export const getAdminsPalika = catchAsync(async (req, res) => {
+  const userPalikaId = res.locals.userPalikaId;
+  const palika = await Palika.findOne({
+    where: { id: userPalikaId },
+    include: [{ model: Department }, { model: StrategyCode }],
+  });
+
+  if (!palika) {
+    return res.status(400).json({
+      status: "failure",
+      message: "Fatal: Admin is not associated with any palika",
+    });
+  }
+
+  return res.status(200).json({
+    status: "success",
+    data: palika,
+  });
+});
+
+export const patchUpdatePalikaDetails = catchAsync(async (req, res) => {
+  const { name, address } = req.body;
+
+  // Validate input
+  if (!name && !address) {
+    return res.status(400).json({
+      status: "failure",
+      message: "Either 'name' or 'address' must be provided in payload.",
+    });
+  }
+
+  // Get the palika of the ADMIN
+  const palikaId = res.locals.userPalikaId;
+
+  // Update the palika details
+  await Palika.update({ name, address }, { where: { id: palikaId } });
+  const updatedPalika = await Palika.findByPk(palikaId);
+  res.status(201).json({
+    status: "success",
+    message: "Palika details updated successfully.",
+    updatedPalika,
   });
 });

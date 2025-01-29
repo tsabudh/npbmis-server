@@ -3,8 +3,10 @@ import { authorizeOnly, verifyToken } from "../middlewares/auth.js";
 import {
   createUser,
   deleteStrategyCode,
+  getAdminsPalika,
   getAllUsers,
   patchStrategyCode,
+  patchUpdatePalikaDetails,
   postBulkCreateStrategyCodes,
   postCreateDepartment,
   postCreateStrategyCode,
@@ -13,6 +15,7 @@ import {
 } from "../controllers/admin.controller.js";
 import { ALL_ADMINS } from "../constants/userConstants.js";
 import { postSignupAdmin } from "../controllers/admin.controller.js";
+import { deleteDepartment, patchUpdateDepartmentDetails } from "../controllers/department.controller.js";
 
 const router = express.Router();
 
@@ -21,14 +24,18 @@ router.post("/signUp", postSignupAdmin);
 router.use(verifyToken, authorizeOnly(ALL_ADMINS));
 
 router.post("/user/create", authorizeOnly(ALL_ADMINS), createUser);
-router.post("/user/get", getAllUsers);
+router.get("/user/get", getAllUsers);
 router.post("/user/resetpassword", resetPassword);
 
+router.get("/palika", getAdminsPalika);
+router.patch("/palika", patchUpdatePalikaDetails);
 router.post("/palika/wards", postUpdatePalikaWards);
 
 router.post("/department/create", postCreateDepartment);
+router.patch("/department/one/:id", patchUpdateDepartmentDetails);
+router.delete("/department/one/:id", deleteDepartment);
 
-router.post("/strategyCodes/bulkCreate",postBulkCreateStrategyCodes);
+router.post("/strategyCodes/bulkCreate", postBulkCreateStrategyCodes);
 router.post("strategyCodes/create", postCreateStrategyCode);
 router.patch("/strategyCodes/update", patchStrategyCode);
 router.delete("/strategyCodes/delete", deleteStrategyCode);

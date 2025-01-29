@@ -139,6 +139,7 @@ export const login = async (req, res) => {
       status: "success",
       id: req.body.userId,
       token,
+      role: user.dataValues.role,
     });
   } catch (e) {
     console.log(e);
